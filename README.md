@@ -2,7 +2,7 @@
 
 ## Intel Arc 140T (Xe2) Optimized - P14s Edition
 
-**Document version:** 2025-03 (post-planning session)
+**Document version:** 2026-03 (post-planning session)
 **Status:** Implementation plan finalized, Phase 1 ready to begin
 **GitHub repo:** [BigDogAgent/ovms-openclaw](https://github.com/BigDogAgent/ovms-openclaw)
 **GitHub project:** ovms-openclaw integration (27 issues tracked)
@@ -40,7 +40,7 @@ This enables:
 ## Architecture
 
 ```
-OpenClaw (OCI ARM64, WireGuard)
+OpenClaw (X1-Yoga, WireGuard)
     ↓
 OVMS container (P14s, rootless Podman)
     ↓

@@ -5,6 +5,12 @@
         "name": "qwen-fast",
         "base_path": "/models/qwen3-8b-int8"
       }
+    },
+    {
+      "config": {
+        "name": "qwen-main",
+        "base_path": "/models/qwen3-14b-int8"
+      }
     }
   ]
 }

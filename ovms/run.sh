@@ -20,7 +20,7 @@ fi
 source "$ENV_FILE"
 
 # Registry login
-echo "$REDHAT_PASSWORD" | podman login registry.connect.redhat.com \
+echo "$REDHAT_TOKEN" | podman login registry.connect.redhat.com \
   --username "$REDHAT_USERNAME" \
   --password-stdin
 

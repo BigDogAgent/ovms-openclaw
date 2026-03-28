@@ -14,7 +14,7 @@ node: {
   }
   node_options: {
     [type.googleapis.com/mediapipe.LLMCalculatorOptions]: {
-      models_path: "./"
+      models_path: "./1/"
       device: "GPU"
       enable_prefix_caching: true
     }

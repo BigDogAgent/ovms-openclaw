@@ -1,0 +1,3 @@
+# Environment files — never commit credentials
+.prod
+.test

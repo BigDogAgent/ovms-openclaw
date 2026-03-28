@@ -1,8 +1,8 @@
 # Multi-Model OVMS Implementation + OpenClaw Integration
 
-## Intel Arc 140T (Xe2) Optimized - P14s Edition
+## Intel Arc 140T (Xe2) Optimized — P14s Edition
 
-**Document version:** 2026-03 (post-planning session)
+**Document version:** 2025-03 (post-planning session)
 **Status:** Implementation plan finalized, Phase 1 ready to begin
 **GitHub repo:** [BigDogAgent/ovms-openclaw](https://github.com/BigDogAgent/ovms-openclaw)
 **GitHub project:** ovms-openclaw integration (27 issues tracked)
@@ -15,7 +15,8 @@
 - **GPU:** Intel Arc 140T (Xe2 iGPU), 8 GB shared VRAM
 - **Container runtime:** Rootless Podman (no Docker)
 - **Serving stack:** OpenVINO Model Server (OVMS) replaces previous `ollama-ov` single-model setup
-- **Gateway:** OpenClaw running on OCI ARM64 instance, connected via WireGuard VPN
+- **Gateway:** OpenClaw running on Lenovo X1 Yoga.
+- **Network:** All systems are hosted behind a OPNsense firewall. P14s is on network: "NAT" (192.168.10.0/24), X1 Yoga is on network: "BOT" (192.168.20.0/24). Firewall rules will limit access from BOT network to NAT network.
 - **Immutability note:** Build tooling runs inside a `fedora:43` Distrobox (`openvino-box`); host packages via `rpm-ostree` only where necessary
 - **Quadlet:** All Podman run commands must remain Quadlet-compatible; systemd service definition is deferred to Phase 6 but must not be blocked by earlier decisions
 
@@ -40,7 +41,7 @@ This enables:
 ## Architecture
 
 ```
-OpenClaw (X1-Yoga, WireGuard)
+OpenClaw (OCI ARM64, WireGuard)
     ↓
 OVMS container (P14s, rootless Podman)
     ↓
@@ -185,22 +186,21 @@ podman run \
 
 **Removed vs. single-model setup** (not supported or deferred in multi-model mode):
 
-- `--source_model` - not applicable in config.json mode
-- `--tool_parser` - under investigation (see Tool Calling section)
-- `--reasoning_parser` - under investigation (see Tool Calling section)
-- `--enable_tool_guided_generation` - under investigation
-- `--cache_size` / `--enable_prefix_caching` - moved to `plugin_config` per model; exact keys to be validated in Phase 4
+- `--source_model` — not applicable in config.json mode
+- `--tool_parser` — under investigation (see Tool Calling section)
+- `--reasoning_parser` — under investigation (see Tool Calling section)
+- `--enable_tool_guided_generation` — under investigation
+- `--cache_size` / `--enable_prefix_caching` — moved to `plugin_config` per model; exact keys to be validated in Phase 4
 
 ---
 
 ## VRAM Budget Considerations
 
-The Arc 140T has 8 GB shared VRAM (drawn from system RAM). Key constraints:
+The Arc 140T shares memory with system RAM).
 
-- 30B INT4 models have an estimated footprint of 17–20 GB - exceeds GPU VRAM alone
+- 30B INT4  and 30B INT8 models are confirmed to work with acceptable performance.
 - Loading all models simultaneously is not the target; **dynamic load/unload is the strategy**
-- OVMS supports hot-reload: edit `config.json` → `POST /v1/config/reload` - no container restart needed
-- Actual per-model VRAM and RAM footprint will be measured and documented in Phase 2 (Issue #10)
+- OVMS supports hot-reload: edit `config.json` → `POST /v1/config/reload` — no container restart needed
 - Load/unload strategy (which models stay resident, which load on demand) will be defined in Phase 3 (Issue #15) based on observed data
 
 ---
@@ -380,7 +380,7 @@ Allow list:
 
 ---
 
-## Quadlet Service (deferred - Phase 6)
+## Quadlet Service (deferred — Phase 6)
 
 A rootless Podman Quadlet `.container` unit will be written in Phase 6 (Issue #26) once implementation is confirmed working. The unit will be based on `ovms/run.sh` and will include:
 
@@ -398,12 +398,12 @@ Commit target: `ovms/ovms.container`
 
 | Phase | Goal                                                                    | Key issues |
 | ----- | ----------------------------------------------------------------------- | ---------- |
-| 1     | Minimum working OVMS service - single model, verified inference         | #1–#6      |
-| 2     | Multi-model config - all models loaded, individually addressable        | #7–#10     |
-| 3     | Dynamic load/unload - hot-reload validated, strategy defined            | #11–#15    |
-| 4     | LLM pipeline tuning - correct plugin_config, caching, performance       | #16–#19    |
-| 5     | OpenClaw integration - routing, WireGuard, tool calling resolved        | #20–#23    |
-| 6     | Resilience & hardening - retry logic, safety rules, Quadlet, monitoring | #24–#27    |
+| 1     | Minimum working OVMS service — single model, verified inference         | #1–#6      |
+| 2     | Multi-model config — all models loaded, individually addressable        | #7–#10     |
+| 3     | Dynamic load/unload — hot-reload validated, strategy defined            | #11–#15    |
+| 4     | LLM pipeline tuning — correct plugin_config, caching, performance       | #16–#19    |
+| 5     | OpenClaw integration — routing, WireGuard, tool calling resolved        | #20–#23    |
+| 6     | Resilience & hardening — retry logic, safety rules, Quadlet, monitoring | #24–#27    |
 
 **Approach:** Agile/incremental. Get a minimum working service in Phase 1, extend from there. No big-bang deployment.
 

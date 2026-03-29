@@ -1,0 +1,123 @@
+# graph.pbtxt — OVMS LLM Pipeline Template
+# BigDog Home Lab — Intel Arc 140T (Xe2 iGPU), P14s Gen 6
+#
+# Reference: https://docs.openvino.ai/2026/model-server/ovms_docs_llm_reference.html
+#
+# This file configures the MediaPipe graph for LLM pipeline serving in OVMS.
+# All generative Qwen3 models in this setup use this pattern.
+#
+# IMPORTANT: This file belongs at <model_dir>/graph.pbtxt (NOT inside 1/).
+# The model IR files (openvino_model.xml/.bin, tokenizer files) live in <model_dir>/1/.
+#
+# --- SERVING MODE CONTEXT ---
+# OVMS supports two serving modes:
+#   1. Standard IR (classic models): config defined in config.json via plugin_config blocks
+#   2. LLM pipeline (generative models): config defined here in graph.pbtxt via node_options
+# All Qwen3 generative models in this setup use LLM pipeline mode.
+# The plugin_config blocks in config.json are NOT used for LLM pipeline models.
+#
+# --- CURRENTLY USED KEYS (with purpose) ---
+#
+#   models_path     Path to the directory containing IR files, relative to graph.pbtxt location.
+#                   Always set to "./1/" since IR files are in the versioned subdirectory.
+#
+#   device          Target inference device. "GPU" = Intel Arc 140T iGPU via OpenCL.
+#                   Confirmed working on Arc 140T with OVMS 2026.0-gpu image.
+#                   Alternative: "CPU" (slower, no VRAM usage).
+#
+#   enable_prefix_caching
+#                   Caches KV-blocks for repeated prompt prefixes. Beneficial for agentic
+#                   use cases where conversation history is resent with each request.
+#                   Set to true. Default is false.
+#
+# --- AVAILABLE BUT NOT CURRENTLY USED ---
+#
+#   cache_size      KV cache size in GB (static allocation). If unset or 0, cache grows
+#                   dynamically as needed up to available system RAM.
+#
+#                   *** IMPORTANT for multi-model setups ***
+#                   With 3 large models resident simultaneously (8B + 14B + 30B int8, ~52GB
+#                   combined), dynamic cache allocation is dangerous. A single long request
+#                   can cause the dynamic cache to consume all remaining RAM, OOM-killing
+#                   the container (confirmed in testing: essay-length request crashed OVMS).
+#
+#                   Recommendation: set a static cap per model to prevent runaway allocation.
+#                   Example: cache_size: 4  → limits KV cache to 4GB per model instance.
+#                   4GB is sufficient for typical agentic interactions (few thousand tokens).
+#                   For reference: 128K token context at ~2 bytes/token ≈ 256MB minimum,
+#                   so 4GB provides comfortable headroom for multi-turn agentic sessions.
+#
+#                   Currently unset (dynamic) — to be revisited in Phase 4 (Issue #18)
+#                   once stable multi-model operation is confirmed.
+#
+#   max_num_batched_tokens
+#                   Max tokens processed per iteration (default: 256). Relevant for
+#                   high-concurrency throughput tuning. Not applicable for single-user setup.
+#
+#   max_num_seqs    Max sequences actively processed (default: 256). Not applicable for
+#                   single-user setup.
+#
+#   dynamic_split_fuse
+#                   Splits long prompts into even chunks for throughput (default: true).
+#                   May be worth disabling for very short prompts or low concurrency.
+#
+#   tool_parser     Parser for tool call extraction from model output. Options (OVMS 2026.0):
+#                   hermes3, llama3, phi4, mistral, devstral, gptoss, qwen3coder.
+#                   Note: hermes3 also works for standard Qwen3 models.
+#                   To be configured in Phase 5 (OpenClaw tool calling integration).
+#
+#   reasoning_parser
+#                   Parser for extracting <think> reasoning content from model output.
+#                   Only supported value: qwen3.
+#                   Currently suppressed via /no_think in system prompt instead.
+#                   To be evaluated in Phase 5.
+#
+#   enable_tool_guided_generation
+#                   Forces model output to match tool schema via XGrammar. Requires
+#                   tool_parser to be set. Default: false. Phase 5 scope.
+#
+#   plugin_config   JSON dictionary of OpenVINO device plugin tuning parameters.
+#                   Example: '{"KV_CACHE_PRECISION": "u8", "DYNAMIC_QUANTIZATION_GROUP_SIZE": "32"}'
+#                   Not currently set — using OVMS defaults which are appropriate for
+#                   Arc 140T with int8 models.
+#
+#   best_of_limit   Max value of best_of parameter from client requests (default: 20).
+#   max_tokens_limit Max value of max_tokens from client requests. Not set.
+#
+# --- BOILERPLATE (do not modify) ---
+# The input/output stream definitions and input_stream_handler block below are
+# required by the MediaPipe framework and must remain unchanged.
+# Only node_options requires user attention.
+
+input_stream: "HTTP_REQUEST_PAYLOAD:input"
+output_stream: "HTTP_RESPONSE_PAYLOAD:output"
+node: {
+  name: "LLMExecutor"
+  calculator: "HttpLLMCalculator"
+  input_stream: "LOOPBACK:loopback"
+  input_stream: "HTTP_REQUEST_PAYLOAD:input"
+  input_side_packet: "LLM_NODE_RESOURCES:llm"
+  output_stream: "LOOPBACK:loopback"
+  output_stream: "HTTP_RESPONSE_PAYLOAD:output"
+  input_stream_info: {
+    tag_index: 'LOOPBACK:0',
+    back_edge: true
+  }
+  node_options: {
+    [type.googleapis.com/mediapipe.LLMCalculatorOptions]: {
+      models_path: "./1/"
+      device: "GPU"
+      enable_prefix_caching: true
+    }
+  }
+  input_stream_handler {
+    input_stream_handler: "SyncSetInputStreamHandler",
+    options {
+      [mediapipe.SyncSetInputStreamHandlerOptions.ext] {
+        sync_set {
+          tag_index: "LOOPBACK:0"
+        }
+      }
+    }
+  }
+}

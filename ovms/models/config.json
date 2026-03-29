@@ -11,6 +11,12 @@
         "name": "qwen-main",
         "base_path": "/models/qwen3-14b-int8"
       }
+    },
+    {
+      "config": {
+        "name": "qwen-coder",
+        "base_path": "/models/qwen3-coder-30b-int8"
+      }
     }
   ]
 }

@@ -17,9 +17,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+set +u
 source "$ENV_FILE"
+set -u
 
-# Registry login
+# Registry login using token
 echo "$REDHAT_TOKEN" | podman login registry.connect.redhat.com \
   --username "$REDHAT_USERNAME" \
   --password-stdin
